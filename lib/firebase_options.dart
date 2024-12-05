@@ -41,48 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBoomJJ848eZHfV5klZ3coGybIcA43rXxo',
-    appId: '1:470979057778:web:0a47d9baa0bb07f59e4aeb',
-    messagingSenderId: '470979057778',
-    projectId: 'j2j-sales-data',
-    authDomain: 'j2j-sales-data.firebaseapp.com',
-    storageBucket: 'j2j-sales-data.firebasestorage.app',
-    measurementId: 'G-R9SGFNHBFZ',
+    apiKey: 'AIzaSyATbQInPbVvloMyBXgnBIRODjqIkY4pta4',
+    appId: '1:472131203776:web:bd211127182d21393cb325',
+    messagingSenderId: '472131203776',
+    projectId: 'j2j-sales-data-cfb68',
+    authDomain: 'j2j-sales-data-cfb68.firebaseapp.com',
+    storageBucket: 'j2j-sales-data-cfb68.firebasestorage.app',
+    measurementId: 'G-GERK9LK2NQ',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCOWxn3mdjH8Y9yu2b7iVRw5vIXUGsyyq8',
-    appId: '1:470979057778:android:63f81fdc9d9a06fd9e4aeb',
-    messagingSenderId: '470979057778',
-    projectId: 'j2j-sales-data',
-    storageBucket: 'j2j-sales-data.firebasestorage.app',
+    apiKey: 'AIzaSyAXJIqfwvSAZPlRnlH3ODxWrJMohKBwTLA',
+    appId: '1:472131203776:android:d7c6a7b52cb177503cb325',
+    messagingSenderId: '472131203776',
+    projectId: 'j2j-sales-data-cfb68',
+    storageBucket: 'j2j-sales-data-cfb68.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDh-Bj8C9LZjVLXCfF95AD3bwtgJW0JphI',
-    appId: '1:470979057778:ios:71c175af9095bfa19e4aeb',
-    messagingSenderId: '470979057778',
-    projectId: 'j2j-sales-data',
-    storageBucket: 'j2j-sales-data.firebasestorage.app',
+    apiKey: 'AIzaSyBou1CtBNCnSPBY-SD9anXsV-mvDOopekg',
+    appId: '1:472131203776:ios:88f2a46e23e982293cb325',
+    messagingSenderId: '472131203776',
+    projectId: 'j2j-sales-data-cfb68',
+    storageBucket: 'j2j-sales-data-cfb68.firebasestorage.app',
     iosBundleId: 'com.example.j2jSpaSales',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDh-Bj8C9LZjVLXCfF95AD3bwtgJW0JphI',
-    appId: '1:470979057778:ios:71c175af9095bfa19e4aeb',
-    messagingSenderId: '470979057778',
-    projectId: 'j2j-sales-data',
-    storageBucket: 'j2j-sales-data.firebasestorage.app',
+    apiKey: 'AIzaSyBou1CtBNCnSPBY-SD9anXsV-mvDOopekg',
+    appId: '1:472131203776:ios:88f2a46e23e982293cb325',
+    messagingSenderId: '472131203776',
+    projectId: 'j2j-sales-data-cfb68',
+    storageBucket: 'j2j-sales-data-cfb68.firebasestorage.app',
     iosBundleId: 'com.example.j2jSpaSales',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBoomJJ848eZHfV5klZ3coGybIcA43rXxo',
-    appId: '1:470979057778:web:605d33c09f5343059e4aeb',
-    messagingSenderId: '470979057778',
-    projectId: 'j2j-sales-data',
-    authDomain: 'j2j-sales-data.firebaseapp.com',
-    storageBucket: 'j2j-sales-data.firebasestorage.app',
-    measurementId: 'G-FTYZXDDNT5',
+    apiKey: 'AIzaSyATbQInPbVvloMyBXgnBIRODjqIkY4pta4',
+    appId: '1:472131203776:web:ec011f626e23636c3cb325',
+    messagingSenderId: '472131203776',
+    projectId: 'j2j-sales-data-cfb68',
+    authDomain: 'j2j-sales-data-cfb68.firebaseapp.com',
+    storageBucket: 'j2j-sales-data-cfb68.firebasestorage.app',
+    measurementId: 'G-SF45PBVB98',
   );
+
 }

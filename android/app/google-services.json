@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "470979057778",
-    "project_id": "j2j-sales-data",
-    "storage_bucket": "j2j-sales-data.firebasestorage.app"
+    "project_number": "472131203776",
+    "project_id": "j2j-sales-data-cfb68",
+    "storage_bucket": "j2j-sales-data-cfb68.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:470979057778:android:63f81fdc9d9a06fd9e4aeb",
+        "mobilesdk_app_id": "1:472131203776:android:d7c6a7b52cb177503cb325",
         "android_client_info": {
           "package_name": "com.example.j2j_spa_sales"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCOWxn3mdjH8Y9yu2b7iVRw5vIXUGsyyq8"
+          "current_key": "AIzaSyAXJIqfwvSAZPlRnlH3ODxWrJMohKBwTLA"
         }
       ],
       "services": {

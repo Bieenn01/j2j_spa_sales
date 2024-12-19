@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "472131203776",
-    "project_id": "j2j-sales-data-cfb68",
-    "storage_bucket": "j2j-sales-data-cfb68.firebasestorage.app"
+    "project_number": "954590533639",
+    "project_id": "j2j-data-sales-test",
+    "storage_bucket": "j2j-data-sales-test.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:472131203776:android:d7c6a7b52cb177503cb325",
+        "mobilesdk_app_id": "1:954590533639:android:161b394f9c7a043020f2a2",
+        "android_client_info": {
+          "package_name": "com.example.data.j2j.test.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCv5nbxLq05hDv_XlUFtR7ZSXjwk1mwt44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:954590533639:android:d610298efc08e7ea20f2a2",
         "android_client_info": {
           "package_name": "com.example.j2j_spa_sales"
         }
@@ -15,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAXJIqfwvSAZPlRnlH3ODxWrJMohKBwTLA"
+          "current_key": "AIzaSyCv5nbxLq05hDv_XlUFtR7ZSXjwk1mwt44"
         }
       ],
       "services": {

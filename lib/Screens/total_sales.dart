@@ -10,25 +10,75 @@ class TotalSalesScreen extends StatefulWidget {
 
 class _TotalSalesScreenState extends State<TotalSalesScreen> {
   DateTimeRange? selectedDateRange;
+  bool hasExpenses = false; // To determine if expenses exist
 
-  Future<Map<String, double>> getSalesData({DateTimeRange? dateRange}) async {
+  // Function to fetch expenses data
+  Future<List<Map<String, dynamic>>> getExpenseDetails() async {
+    List<Map<String, dynamic>> expensesList = [];
+    DateTime today = DateTime.now();
+    String todayDate = DateFormat('yyyy-MM-dd').format(today);
+
+    QuerySnapshot expenseSnapshot =
+        await FirebaseFirestore.instance.collection('expenses').get();
+
+    for (var doc in expenseSnapshot.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      var amount = data['amount'] ?? 0.0;
+      var date = data['date'];
+
+      // Handle Timestamp and String date fields
+      DateTime? expenseDate;
+      if (date is Timestamp) {
+        expenseDate = date.toDate();
+      } else if (date is String) {
+        expenseDate = DateTime.tryParse(date);
+      }
+
+      if (expenseDate == null) continue;
+
+      // Filter today's expenses
+      if (DateFormat('yyyy-MM-dd').format(expenseDate) == todayDate) {
+        expensesList.add(data);
+      }
+    }
+
+    return expensesList;
+  }
+
+  Future<Map<String, double>> getSalesAndExpenseData(
+      {DateTimeRange? dateRange}) async {
     double totalSales = 0.0;
     double todaySales = 0.0;
     double rangeSales = 0.0;
+    double totalExpenses = 0.0;
+    double todayExpenses = 0.0;
+    double rangeExpenses = 0.0;
 
-    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    DateTime today = DateTime.now();
+    String todayDate = DateFormat('yyyy-MM-dd').format(today);
 
-    QuerySnapshot snapshot =
+    // Fetch sales
+    QuerySnapshot salesSnapshot =
         await FirebaseFirestore.instance.collection('sales').get();
-
-    for (var doc in snapshot.docs) {
+    for (var doc in salesSnapshot.docs) {
       var data = doc.data() as Map<String, dynamic>;
       var paymentDetails = data['payment_details'];
       var paymentType = paymentDetails['payment_type'];
       var totalAmount = data['total_amount'] ?? 0.0;
       var partialPaid = paymentDetails['partial_amount_paid'] ?? 0.0;
-      var date = data['date'] ?? '';
+      var date = data['date'];
+
       double saleTotal = 0.0;
+
+      // Handle Timestamp and String date fields
+      DateTime? saleDate;
+      if (date is Timestamp) {
+        saleDate = date.toDate();
+      } else if (date is String) {
+        saleDate = DateTime.tryParse(date);
+      }
+
+      if (saleDate == null) continue;
 
       if (paymentType == 'Full') {
         saleTotal += totalAmount;
@@ -38,25 +88,67 @@ class _TotalSalesScreenState extends State<TotalSalesScreen> {
 
       totalSales += saleTotal;
 
-      // Check if the sale is for today
-      if (date == todayDate) {
+      // Today's sales
+      if (DateFormat('yyyy-MM-dd').format(saleDate) == todayDate) {
         todaySales += saleTotal;
       }
 
-      // Calculate range sales if a date range is provided
-      if (dateRange != null) {
-        DateTime saleDate = DateTime.parse(date);
-        if (saleDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
-            saleDate.isBefore(dateRange.end.add(Duration(days: 1)))) {
-          rangeSales += saleTotal;
-        }
+      // Range sales
+      if (dateRange != null &&
+          saleDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
+          saleDate.isBefore(dateRange.end.add(Duration(days: 1)))) {
+        rangeSales += saleTotal;
       }
     }
 
+    // Fetch expenses
+    QuerySnapshot expenseSnapshot =
+        await FirebaseFirestore.instance.collection('expenses').get();
+    for (var doc in expenseSnapshot.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      var amount = data['amount'] ?? 0.0;
+      var date = data['date'];
+
+      // Handle Timestamp and String date fields
+      DateTime? expenseDate;
+      if (date is Timestamp) {
+        expenseDate = date.toDate();
+      } else if (date is String) {
+        expenseDate = DateTime.tryParse(date);
+      }
+
+      if (expenseDate == null) continue;
+
+      // Total expenses
+      totalExpenses += amount;
+
+      // Today's expenses
+      if (DateFormat('yyyy-MM-dd').format(expenseDate) == todayDate) {
+        todayExpenses += amount;
+      }
+
+      // Filter expenses for the selected range
+      if (dateRange != null &&
+          expenseDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
+          expenseDate.isBefore(dateRange.end.add(Duration(days: 1)))) {
+        rangeExpenses += amount;
+      }
+    }
+
+    // Adjust range sales to subtract range expenses
+    if (dateRange != null) {
+      rangeSales -= rangeExpenses;
+    }
+
+    // Determine if there are any expenses
+    hasExpenses = totalExpenses > 0;
+
+    // Return the calculated data
     return {
-      'totalSales': totalSales,
-      'todaySales': todaySales,
+      'totalSales': totalSales - totalExpenses,
+      'todaySales': todaySales - todayExpenses,
       'rangeSales': rangeSales,
+      'totalExpenses': totalExpenses,
     };
   }
 
@@ -79,7 +171,7 @@ class _TotalSalesScreenState extends State<TotalSalesScreen> {
     }
   }
 
-Future<List<FlSpot>> _getMonthlySalesData() async {
+  Future<List<FlSpot>> _getMonthlySalesData() async {
     List<double> monthlySales =
         List.generate(12, (_) => 0.0); // Initialize with 12 months
     int currentYear = DateTime.now().year;
@@ -98,10 +190,8 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
       // Skip if the date field is invalid
       if (date.isEmpty) continue;
 
-      DateTime saleDate = DateTime.tryParse(date) ??
-          DateTime(1970); // Default to epoch on invalid parse
-      if (saleDate.year != currentYear)
-        continue; // Skip sales not in the current year
+      DateTime saleDate = DateTime.tryParse(date) ?? DateTime(1970);
+      if (saleDate.year != currentYear) continue;
 
       double saleTotal = 0.0;
       if (paymentType == 'Full') {
@@ -110,12 +200,10 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
         saleTotal += partialPaid;
       }
 
-      int monthIndex =
-          saleDate.month - 1; // Convert to zero-indexed for the list
+      int monthIndex = saleDate.month - 1;
       monthlySales[monthIndex] += saleTotal;
     }
 
-    // Convert monthly sales to FlSpot for the chart
     List<FlSpot> spots = [];
     for (int i = 0; i < 12; i++) {
       spots.add(FlSpot(i.toDouble(), monthlySales[i]));
@@ -124,20 +212,54 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
     return spots;
   }
 
+  // Function to display the expenses in a dialog
+  Future<void> _showExpenses() async {
+    List<Map<String, dynamic>> expenses = await getExpenseDetails();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Expense Details'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: expenses.map((expense) {
+                return ListTile(
+                  title: Text('₱${expense['amount']}'),
+                  subtitle: Text(expense['name'] ?? 'No Description'),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Total Sales'),
+        title: Text(''),
         actions: [
           IconButton(
             icon: Icon(Icons.calendar_today),
             onPressed: _pickDateRange,
           ),
+
         ],
       ),
       body: FutureBuilder<Map<String, double>>(
-        future: getSalesData(dateRange: selectedDateRange),
+        future: getSalesAndExpenseData(dateRange: selectedDateRange),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
@@ -150,6 +272,7 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
           double totalSales = snapshot.data?['totalSales'] ?? 0.0;
           double todaySales = snapshot.data?['todaySales'] ?? 0.0;
           double rangeSales = snapshot.data?['rangeSales'] ?? 0.0;
+          double totalExpenses = snapshot.data?['totalExpenses'] ?? 0.0;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -157,12 +280,25 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sales Overview',
+                  'Sales Overview ${hasExpenses ? "(Net)" : ""}',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 20),
-                _buildSalesTile('Total Sales', totalSales),
-                _buildSalesTile('Today\'s Sales', todaySales),
+                // _buildSalesTile(
+                //     'Total Sales ${hasExpenses ? "(After Expenses)" : ""}',
+                //     totalSales),
+                _buildSalesTile(
+                    'Today\'s Sales ${hasExpenses ? "(After Expenses)" : ""}',
+                    todaySales),
+                _buildSalesTile(
+                  'Total Expenses',
+                  totalExpenses,
+                  trailingIcon: IconButton(
+                    icon: Icon(Icons.receipt),
+                    onPressed:
+                        _showExpenses, // This will trigger the expense list
+                  ),
+                ),
                 if (selectedDateRange != null)
                   Card(
                     color: Colors.yellow[100],
@@ -286,13 +422,19 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
     );
   }
 
-  Widget _buildSalesTile(String label, double amount) {
+  Widget _buildSalesTile(String label, double amount, {Widget? trailingIcon}) {
     return Card(
       color: Colors.white,
       elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
-        title: Text(label),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label),
+            if (trailingIcon != null) trailingIcon,
+          ],
+        ),
         trailing: Text(
           '₱${amount.toStringAsFixed(2)}',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

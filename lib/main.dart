@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:j2j_spa_sales/Screens/payments.dart';
 import 'package:j2j_spa_sales/Screens/production_selection.dart';
 import 'package:j2j_spa_sales/Screens/total_sales.dart';
+import 'package:j2j_spa_sales/Screens/expenses.dart'; // New Expenses screen
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
@@ -39,6 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     TotalSalesScreen(), // First tab: Total Sales
     ProductSelectionScreen(), // Second tab: Product Selection (Or other screen)
     PaymentDetailsScreen(), // Third tab: Payment Details Screen
+    ExpensesScreen(), // Fourth tab: Expenses Screen
   ];
 
   // Update selected index when a tab is tapped
@@ -55,6 +57,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex, // Highlight the selected tab
         onTap: _onItemTapped, // Handle tab selection
+        backgroundColor: Colors.blue, // Set a background color
+        selectedItemColor: Colors.white, // Color for the selected tab
+        unselectedItemColor: Colors.white70, // Color for unselected tabs
+        type: BottomNavigationBarType
+            .fixed, // Fixes the color and avoids shifting animation
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.attach_money),
@@ -67,6 +74,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.payment),
             label: 'Payments',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Expenses',
           ),
         ],
       ),

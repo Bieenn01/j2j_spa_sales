@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:j2j_spa_sales/Screens/payments.dart';
 import 'package:j2j_spa_sales/Screens/production_selection.dart';
 import 'package:j2j_spa_sales/Screens/total_sales.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,6 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -36,6 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<Widget> _screens = [
     TotalSalesScreen(), // First tab: Total Sales
     ProductSelectionScreen(), // Second tab: Product Selection (Or other screen)
+    PaymentDetailsScreen(), // Third tab: Payment Details Screen
   ];
 
   // Update selected index when a tab is tapped
@@ -60,6 +63,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.add_shopping_cart),
             label: 'Products',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.payment),
+            label: 'Payments',
           ),
         ],
       ),

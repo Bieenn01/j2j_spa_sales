@@ -2,78 +2,41 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:j2j_spa_sales/db/products.dart';
 
-
 class ProductSelectionScreen extends StatefulWidget {
   @override
   _ProductSelectionScreenState createState() => _ProductSelectionScreenState();
 }
 
 class _ProductSelectionScreenState extends State<ProductSelectionScreen> {
-  List<Product> productList = [
-    Product(name: "Hifu Face", price: 2500),
-    Product(name: "Hifu Body", price: 3000),
-    Product(name: "Basic Facial", price: 350),
-    Product(name: "Facial with Dia Peel", price: 499),
-    Product(name: "BB Glow Facial", price: 499),
-    Product(name: "Black Doll Facial", price: 999),
-    Product(name: "Pico Laser Facial", price: 1399),
-    Product(name: "Vampire/PRP Facial", price: 1500),
-    Product(name: "Whole Body Massage 9am-11am/hr", price: 200),
-    Product(name: "Whole Body Massage 11am-2pm/hr", price: 250),
-    Product(name: "Whole Body Massage 2pm-6pm/hr", price: 350),
-    Product(name: "Vintosa Add-on", price: 100),
-    Product(name: "Hot Stone Add-on", price: 100),
-    Product(name: "Earcandle Add-on", price: 100),
-    Product(name: "Foot Massage 30 min", price: 150),
-    Product(name: "Foot Massage 1 hour", price: 250),
-    Product(name: "Foot Spa", price: 200),
-    Product(name: "RF Face", price: 200),
-    Product(name: "RF Back", price: 350),
-    Product(name: "RF Arms", price: 350),
-    Product(name: "RF Thigh", price: 400),
-    Product(name: "RF Tummy", price: 500),
-    Product(name: "10+2 RF Package", price: 12000),
-    Product(name: "Muscle Stimul", price: 500),
-    Product(name: "Manicure Regular", price: 80),
-    Product(name: "Pedicure Regular", price: 85),
-    Product(name: "Manicure Gel Polish", price: 199),
-    Product(name: "Pedicure Gel Polish", price: 199),
-    Product(name: "Eyelash Extension", price: 350),
-    Product(name: "Soft Nail Ext. w/ Gel", price: 499),
-    Product(name: "Upper Lip Laser", price: 200),
-    Product(name: "Lower Lip Laser", price: 200),
-    Product(name: "Under Arm Laser", price: 350),
-    Product(name: "Brazilian Laser", price: 850),
-    Product(name: "Beard", price: 399),
-    Product(name: "Wart Removal (Face & Neck)", price: 1500),
-  ];
-
+  List<Product> productList = [];
   List<Product> filteredProductList = [];
   Set<Product> selectedProducts = Set();
   TextEditingController searchController = TextEditingController();
 
+  TextEditingController clientNameController = TextEditingController();
+  String paymentType = 'Full';
+
   @override
   void initState() {
     super.initState();
-    filteredProductList = List.from(productList); // Initialize filtered list
-    _fetchProducts(); // Fetch products from Firestore
     searchController.addListener(_filterProducts);
+    _loadProducts();
   }
 
   @override
   void dispose() {
     searchController.dispose();
+    clientNameController.dispose();
     super.dispose();
   }
 
-  // Fetch products from Firestore
-  Future<void> _fetchProducts() async {
-    final querySnapshot =
+  Future<void> _loadProducts() async {
+    QuerySnapshot<Map<String, dynamic>> snapshot =
         await FirebaseFirestore.instance.collection('products').get();
     setState(() {
-      final firestoreProducts =
-          querySnapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
-      productList.addAll(firestoreProducts);
+      productList = snapshot.docs.map((doc) {
+        return Product.fromFirestore(doc);
+      }).toList();
       filteredProductList = List.from(productList);
     });
   }
@@ -88,86 +51,239 @@ class _ProductSelectionScreenState extends State<ProductSelectionScreen> {
     });
   }
 
-  // Add, update, delete, and dialog methods remain the same...
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Select Products'),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(kToolbarHeight),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                labelText: 'Search Products',
-                hintText: 'Enter product name...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: filteredProductList.isEmpty
-          ? Center(child: Text('No products found.'))
-          : ListView.builder(
-              itemCount: filteredProductList.length,
-              itemBuilder: (context, index) {
-                final product = filteredProductList[index];
-                return Card(
-                  margin: EdgeInsets.all(8),
-                  child: ListTile(
-                    title: Text(product.name),
-                    subtitle: Text('₱${product.price}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+
+Future<void> _showPaymentDialog() async {
+    String localPaymentType =
+        paymentType; // Local variable to manage dialog state
+    String paymentMethod =
+        ""; // To track the payment method for Partial Payment
+    TextEditingController partialPaymentController = TextEditingController();
+    double totalAmount = selectedProducts.fold(
+        0.0, (sum, product) => sum + product.price); // Calculate total amount
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Complete Sale'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: clientNameController,
+                      decoration: InputDecoration(labelText: 'Client Name'),
+                    ),
+                    Row(
                       children: [
-                        IconButton(
-                          icon: Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showProductDialog(product: product),
+                        Text('Payment Type:'),
+                        Radio<String>(
+                          value: 'Full',
+                          groupValue: localPaymentType,
+                          onChanged: (String? value) {
+                            setDialogState(() {
+                              localPaymentType = value!;
+                            });
+                          },
                         ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteProduct(product),
+                        Text('Full'),
+                        Radio<String>(
+                          value: 'Partial',
+                          groupValue: localPaymentType,
+                          onChanged: (String? value) {
+                            setDialogState(() {
+                              localPaymentType = value!;
+                            });
+                          },
                         ),
+                        Text('Partial'),
                       ],
                     ),
-                    onTap: () {
-                      setState(() {
-                        if (selectedProducts.contains(product)) {
-                          selectedProducts.remove(product);
-                        } else {
-                          selectedProducts.add(product);
-                        }
-                      });
-                    },
-                  ),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showProductDialog(),
-        child: Icon(Icons.add),
-        backgroundColor: Colors.green,
-      ),
+                    if (localPaymentType == 'Partial')
+                      Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            decoration:
+                                InputDecoration(labelText: 'Payment Method'),
+                            value: paymentMethod.isEmpty ? null : paymentMethod,
+                            items: ["Gcash", "Cash", "Check"]
+                                .map((method) => DropdownMenuItem(
+                                      value: method,
+                                      child: Text(method),
+                                    ))
+                                .toList(),
+                            onChanged: (String? value) {
+                              setDialogState(() {
+                                paymentMethod = value!;
+                              });
+                            },
+                          ),
+                          TextField(
+                            controller: partialPaymentController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                                labelText: 'Partial Payment Amount'),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    String clientName = clientNameController.text.trim();
+
+                    // Validation
+                    if (clientName.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Please enter client name.')),
+                      );
+                      return;
+                    }
+
+                    if (selectedProducts.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('No products selected.')),
+                      );
+                      return;
+                    }
+
+                    double partialPayment = 0.0;
+                    if (localPaymentType == 'Partial') {
+                      if (paymentMethod.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text('Please select a payment method.')),
+                        );
+                        return;
+                      }
+
+                      partialPayment = double.tryParse(
+                              partialPaymentController.text.trim()) ??
+                          0.0;
+
+                      if (partialPayment <= 0 || partialPayment > totalAmount) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  'Partial payment must be greater than 0 and less than or equal to the total amount.')),
+                        );
+                        return;
+                      }
+                    }
+
+                    // Save to Firestore
+                    setState(() {
+                      paymentType = localPaymentType; // Update parent state
+                    });
+
+                    await addProductsToFirebase(
+                      selectedProducts,
+                      clientName,
+                      paymentType,
+                      partialPayment: partialPayment,
+                      remainingBalance: totalAmount - partialPayment,
+                      paymentMethod: paymentMethod,
+                    );
+
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('Complete Sale'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  void _showProductDialog({Product? product}) {
+  Future<void> addProductsToFirebase(
+    Set<Product> selectedProducts,
+    String clientName,
+    String paymentType, {
+    double partialPayment = 0.0,
+    double remainingBalance = 0.0,
+    String paymentMethod = '',
+  }) async {
+    DateTime now = DateTime.now();
+    String today =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    DocumentReference salesRef =
+        FirebaseFirestore.instance.collection('sales').doc();
+
+    List<Map<String, dynamic>> productDetails = selectedProducts.map((product) {
+      return {
+        'product_name': product.name,
+        'price': product.price,
+        'date': today,
+      };
+    }).toList();
+
+    try {
+      Map<String, dynamic> paymentDetails = {
+        'payment_type': paymentType,
+        'payment_method': paymentMethod,
+      };
+
+      if (paymentType == 'Partial') {
+        paymentDetails['partial_amount_paid'] = partialPayment;
+        paymentDetails['remaining_balance'] = remainingBalance;
+      }
+
+      await salesRef.set({
+        'products': productDetails,
+        'total_amount':
+            selectedProducts.fold(0.0, (sum, product) => sum + product.price),
+        'timestamp': FieldValue.serverTimestamp(),
+        'date': today,
+        'client_name': clientName,
+        'payment_details': paymentDetails,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sale completed with $clientName!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add products: $e')),
+      );
+    }
+
+    setState(() {
+      selectedProducts.clear();
+    });
+  }
+
+
+  Future<void> _sendSelectedProductsToFirebase() async {
+    _showPaymentDialog();
+  }
+
+  void _clearSelectedProducts() {
+    setState(() {
+      selectedProducts.clear();
+    });
+  }
+
+   void _showProductDialog({Product? product}) {
     final nameController = TextEditingController(text: product?.name ?? '');
     final priceController =
         TextEditingController(text: product?.price.toString() ?? '');
-
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(product == null ? 'Add Product' : 'Edit Product'),
+          title: Text(product == null ? 'Add Product' : 'Update Product'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -177,34 +293,29 @@ class _ProductSelectionScreenState extends State<ProductSelectionScreen> {
               ),
               TextField(
                 controller: priceController,
-                decoration: InputDecoration(labelText: 'Product Price'),
+                decoration: InputDecoration(labelText: 'Price'),
                 keyboardType: TextInputType.number,
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(context).pop(),
               child: Text('Cancel'),
             ),
-            ElevatedButton(
-              onPressed: () {
-                final name = nameController.text;
-                final price = double.tryParse(priceController.text) ?? 0.0;
-
+            TextButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final price = double.tryParse(priceController.text.trim()) ?? 0;
                 if (name.isNotEmpty && price > 0) {
-                  setState(() {
-                    if (product == null) {
-                      // Adding new product
-                      productList.add(Product(name: name, price: price));
-                    } else {
-                      // Editing existing product
-                      product.name = name;
-                      product.price = price;
-                    }
-                    filteredProductList = List.from(productList);
-                  });
-                  Navigator.pop(context);
+                  if (product == null) {
+                    await _addProduct(name, price);
+                  } else {
+                    product.name = name;
+                    product.price = price;
+                    await _updateProduct(product);
+                  }
+                  Navigator.of(context).pop();
                 }
               },
               child: Text('Save'),
@@ -215,13 +326,199 @@ class _ProductSelectionScreenState extends State<ProductSelectionScreen> {
     );
   }
 
-  void _deleteProduct(Product product) {
+  Future<void> _addProduct(String name, double price) async {
+    final newProduct = Product(name: name, price: price);
+    final docRef = await FirebaseFirestore.instance
+        .collection('products')
+        .add(newProduct.toFirestore());
+    newProduct.id = docRef.id;
     setState(() {
-      productList.remove(product);
+      productList.add(newProduct);
       filteredProductList = List.from(productList);
     });
   }
 
-  
+  Future<void> _updateProduct(Product product) async {
+    if (product.id.isNotEmpty) {
+      await FirebaseFirestore.instance
+          .collection('products')
+          .doc(product.id)
+          .update(product.toFirestore());
+      setState(() {
+        final index = productList.indexWhere((p) => p.id == product.id);
+        if (index != -1) {
+          productList[index] = product;
+          filteredProductList = List.from(productList);
+        }
+      });
+    }
+  }
 
+  Future<void> _deleteProduct(Product product) async {
+    if (product.id.isNotEmpty) {
+      await FirebaseFirestore.instance
+          .collection('products')
+          .doc(product.id)
+          .delete();
+      setState(() {
+        productList.remove(product);
+        filteredProductList = List.from(productList);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Select Products'),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(kToolbarHeight),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search Products',
+                      hintText: 'Enter product name...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: CircleAvatar(
+                    backgroundColor:
+                        Colors.green, // Set the circular background to green
+                    child: Icon(
+                      Icons.add,
+                      color: Colors.white, // Set the icon color to white
+                    ),
+                  ),
+                  onPressed: () => _showProductDialog(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: filteredProductList.isEmpty
+                ? Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    itemCount: filteredProductList.length,
+                    itemBuilder: (context, index) {
+                      final product = filteredProductList[index];
+                      return Card(
+                        margin: EdgeInsets.all(8),
+                        child: ListTile(
+                          leading: Checkbox(
+                            value: selectedProducts.contains(product),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  selectedProducts.add(product);
+                                } else {
+                                  selectedProducts.remove(product);
+                                }
+                              });
+                            },
+                          ),
+                          title: Text(product.name),
+                          subtitle: Text('₱${product.price}'),
+                          trailing: PopupMenuButton(
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _showProductDialog(product: product);
+                              } else if (value == 'delete') {
+                                _deleteProduct(product);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edit'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Divider(),
+          if (selectedProducts.isNotEmpty)
+            Expanded(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Selected Products (${selectedProducts.length}):',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      children: selectedProducts.map((product) {
+                        return ListTile(
+                          title: Text(product.name),
+                          subtitle: Text('₱${product.price}'),
+                          trailing: IconButton(
+                            icon: Icon(Icons.remove_circle, color: Colors.red),
+                            onPressed: () {
+                              setState(() {
+                                selectedProducts.remove(product);
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _clearSelectedProducts,
+                          child: Text('Clear All'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            padding: EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 20),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          icon: Icon(Icons.cloud_upload),
+                          label: Text('Complete'),
+                          onPressed: _sendSelectedProductsToFirebase,
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

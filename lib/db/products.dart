@@ -2,33 +2,35 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Product {
   String id; // Firestore document ID
-  late final String name;
-  late final double price;
+  String name; // Product name
+  double price; // Product price
 
   Product({required this.name, required this.price, this.id = ''});
 
-  // Factory method to create a Product from Firestore data
-  factory Product.fromMap(Map<String, dynamic> data) {
+  // Factory constructor to create a Product from a Firestore document snapshot
+  factory Product.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
     return Product(
-      name: data['name'] ?? '',
-      price: data['price'] ?? 0.0,
+      id: doc.id, // Automatically assigns the Firestore document ID
+      name: data['name'] ?? '', // Default to an empty string if name is missing
+      price: (data['price'] ?? 0).toDouble(), // Ensure price is a double
+    );
+  }
+
+  // Factory constructor to create a Product from a map (non-Firestore use case)
+  factory Product.fromMap(Map<String, dynamic> data, {String id = ''}) {
+    return Product(
+      id: id, // Optional ID assignment for non-Firestore use
+      name: data['name'] ?? '', // Default to empty string if name is missing
+      price: (data['price'] ?? 0).toDouble(), // Ensure price is a double
     );
   }
 
   // Convert Product to a map for Firestore storage
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
       'name': name,
       'price': price,
     };
-  }
-  
-  factory Product.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Product(
-      id: doc.id,
-      name: data['name'],
-      price: (data['price'] as num).toDouble(),
-    );
   }
 }

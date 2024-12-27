@@ -325,7 +325,9 @@ if (selectedDateRange != null)
                                       await FirebaseFirestore.instance
                                           .collection('sales')
                                           .get();
-                                  List<String> clients = [];
+
+                                  Map<String, List<Map<String, dynamic>>>
+                                      clientsWithProducts = {};
 
                                   for (var doc in salesSnapshot.docs) {
                                     var data =
@@ -333,6 +335,9 @@ if (selectedDateRange != null)
                                     var timestamp =
                                         data['timestamp'] as Timestamp;
                                     var clientName = data['client_name'] ?? '';
+                                    var products =
+                                        List<Map<String, dynamic>>.from(
+                                            data['products'] ?? []);
 
                                     DateTime saleDate = timestamp.toDate();
 
@@ -341,25 +346,65 @@ if (selectedDateRange != null)
                                             .subtract(Duration(days: 1))) &&
                                         saleDate.isBefore(selectedDateRange!.end
                                             .add(Duration(days: 1)))) {
-                                      if (clientName.isNotEmpty &&
-                                          !clients.contains(clientName)) {
-                                        clients.add(clientName);
+                                      // If client name is not empty, group products by client
+                                      if (clientName.isNotEmpty) {
+                                        if (!clientsWithProducts
+                                            .containsKey(clientName)) {
+                                          clientsWithProducts[clientName] = [];
+                                        }
+
+                                        // Add all products for the current client
+                                        for (var product in products) {
+                                          clientsWithProducts[clientName]?.add({
+                                            'product_name':
+                                                product['product_name'],
+                                            'price': product['price'],
+                                          });
+                                        }
                                       }
                                     }
                                   }
 
+                                  // Show the dialog with the filtered clients and their products
                                   showDialog(
                                     context: context,
                                     builder: (context) => AlertDialog(
                                       title: Text(
                                           "Clients Who Availed the Product"),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: clients.map<Widget>((client) {
-                                          return Text(client);
-                                        }).toList(),
+                                      content: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: clientsWithProducts.entries
+                                              .map<Widget>((entry) {
+                                            String clientName = entry.key;
+                                            List<Map<String, dynamic>>
+                                                products = entry.value;
+
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  clientName,
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                                SizedBox(height: 8),
+                                                ...products.map((product) {
+                                                  return Text(
+                                                    '${product['product_name']} - ₱${product['price']}',
+                                                    style:
+                                                        TextStyle(fontSize: 16),
+                                                  );
+                                                }).toList(),
+                                                SizedBox(height: 12),
+                                              ],
+                                            );
+                                          }).toList(),
+                                        ),
                                       ),
                                       actions: [
                                         TextButton(
@@ -373,6 +418,7 @@ if (selectedDateRange != null)
                                   );
                                 },
                               ),
+
                             ],
                           ),
                         ],

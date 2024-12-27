@@ -10,23 +10,34 @@ class TotalSalesScreen extends StatefulWidget {
 
 class _TotalSalesScreenState extends State<TotalSalesScreen> {
   DateTimeRange? selectedDateRange;
+  List<String> todayExpenseNames = [];
 
-  Future<Map<String, double>> getSalesData({DateTimeRange? dateRange}) async {
+Future<Map<String, dynamic>> getSalesAndExpensesData(
+      {DateTimeRange? dateRange}) async {
     double totalSales = 0.0;
+    double totalExpenses = 0.0;
     double todaySales = 0.0;
+    double todayExpenses = 0.0;
     double rangeSales = 0.0;
+    double rangeExpenses = 0.0;
+    todayExpenseNames.clear(); // Reset the list of today's expense names
+    List<double> todayExpenseAmounts =
+        []; // List to store today's expense amounts
 
-    String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    DateTime todayDate =
+        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
-    QuerySnapshot snapshot =
+    // Fetch sales data
+    QuerySnapshot salesSnapshot =
         await FirebaseFirestore.instance.collection('sales').get();
 
-    for (var doc in snapshot.docs) {
+    for (var doc in salesSnapshot.docs) {
       var data = doc.data() as Map<String, dynamic>;
       var paymentDetails = data['payment_details'];
       var paymentType = paymentDetails['payment_type'];
       var totalAmount = data['total_amount'] ?? 0.0;
       var partialPaid = paymentDetails['partial_amount_paid'] ?? 0.0;
+      var timestamp = data['timestamp'] as Timestamp;
       var date = data['date'] ?? '';
       double saleTotal = 0.0;
 
@@ -38,12 +49,14 @@ class _TotalSalesScreenState extends State<TotalSalesScreen> {
 
       totalSales += saleTotal;
 
-      // Check if the sale is for today
-      if (date == todayDate) {
+      DateTime saleDate = timestamp.toDate();
+
+      if (saleDate.year == todayDate.year &&
+          saleDate.month == todayDate.month &&
+          saleDate.day == todayDate.day) {
         todaySales += saleTotal;
       }
 
-      // Calculate range sales if a date range is provided
       if (dateRange != null) {
         DateTime saleDate = DateTime.parse(date);
         if (saleDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
@@ -52,11 +65,66 @@ class _TotalSalesScreenState extends State<TotalSalesScreen> {
         }
       }
     }
+    
+
+    // Fetch expenses data
+    QuerySnapshot expensesSnapshot =
+        await FirebaseFirestore.instance.collection('expenses').get();
+
+for (var doc in expensesSnapshot.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      var amount = data['amount'] ?? 0.0;
+      var name = data['name'] ?? '';
+      var timestamp = data['date']; // Don't cast to Timestamp immediately.
+
+      totalExpenses += amount;
+
+      // Initialize expenseDate with a default value
+      DateTime expenseDate = DateTime.now();
+
+      // Handle the timestamp conversion correctly
+      if (timestamp is Timestamp) {
+        expenseDate = timestamp.toDate(); // Convert Timestamp to DateTime
+      } else if (timestamp is String) {
+        try {
+          expenseDate = DateTime.parse(timestamp); // Parse String to DateTime
+        } catch (e) {
+          print('Error parsing date string: $timestamp');
+        }
+      }
+
+      // Check if the expense date matches today's date
+      if (expenseDate.year == todayDate.year &&
+          expenseDate.month == todayDate.month &&
+          expenseDate.day == todayDate.day) {
+        todayExpenses += amount;
+        if (name.isNotEmpty) {
+          todayExpenseNames.add(name);
+          todayExpenseAmounts.add(amount); // Store the expense amount
+        }
+      }
+
+      // If a date range is selected, check if the expense date is within the range
+      if (dateRange != null) {
+        if (expenseDate.isAfter(dateRange.start.subtract(Duration(days: 1))) &&
+            expenseDate.isBefore(dateRange.end.add(Duration(days: 1)))) {
+          rangeExpenses += amount;
+        }
+      }
+    }
+
+
+    todaySales -= todayExpenses;
+    rangeSales -= rangeExpenses;
 
     return {
       'totalSales': totalSales,
+      'totalExpenses': totalExpenses,
       'todaySales': todaySales,
       'rangeSales': rangeSales,
+      'todayExpenseNames': todayExpenseNames,
+      'todayExpenseAmounts':
+          todayExpenseAmounts, // Return today's expense amounts
     };
   }
 
@@ -79,77 +147,40 @@ class _TotalSalesScreenState extends State<TotalSalesScreen> {
     }
   }
 
-Future<List<FlSpot>> _getMonthlySalesData() async {
-    List<double> monthlySales =
-        List.generate(12, (_) => 0.0); // Initialize with 12 months
-    int currentYear = DateTime.now().year;
-
-    QuerySnapshot snapshot =
-        await FirebaseFirestore.instance.collection('sales').get();
-
-    for (var doc in snapshot.docs) {
-      var data = doc.data() as Map<String, dynamic>;
-      var paymentDetails = data['payment_details'];
-      var paymentType = paymentDetails['payment_type'];
-      var totalAmount = data['total_amount'] ?? 0.0;
-      var partialPaid = paymentDetails['partial_amount_paid'] ?? 0.0;
-      var date = data['date'] ?? '';
-
-      // Skip if the date field is invalid
-      if (date.isEmpty) continue;
-
-      DateTime saleDate = DateTime.tryParse(date) ??
-          DateTime(1970); // Default to epoch on invalid parse
-      if (saleDate.year != currentYear)
-        continue; // Skip sales not in the current year
-
-      double saleTotal = 0.0;
-      if (paymentType == 'Full') {
-        saleTotal += totalAmount;
-      } else if (paymentType == 'Partial') {
-        saleTotal += partialPaid;
-      }
-
-      int monthIndex =
-          saleDate.month - 1; // Convert to zero-indexed for the list
-      monthlySales[monthIndex] += saleTotal;
-    }
-
-    // Convert monthly sales to FlSpot for the chart
-    List<FlSpot> spots = [];
-    for (int i = 0; i < 12; i++) {
-      spots.add(FlSpot(i.toDouble(), monthlySales[i]));
-    }
-
-    return spots;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Total Sales'),
+        title: Text(''),
         actions: [
+          Text(
+          'To view total sale on a specified date range',
+          style: TextStyle(fontSize: 11),
+          ),
+          SizedBox(width: 3,),
+          Icon(Icons.arrow_right_alt),
           IconButton(
             icon: Icon(Icons.calendar_today),
             onPressed: _pickDateRange,
           ),
         ],
       ),
-      body: FutureBuilder<Map<String, double>>(
-        future: getSalesData(dateRange: selectedDateRange),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: getSalesAndExpensesData(dateRange: selectedDateRange),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData) {
-            return Center(child: Text('No sales data available.'));
+            return Center(child: Text('No sales or expenses data available.'));
           }
 
           double totalSales = snapshot.data?['totalSales'] ?? 0.0;
+          double totalExpenses = snapshot.data?['totalExpenses'] ?? 0.0;
           double todaySales = snapshot.data?['todaySales'] ?? 0.0;
           double rangeSales = snapshot.data?['rangeSales'] ?? 0.0;
+          double netSales = totalSales - totalExpenses;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -161,9 +192,11 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 20),
-                _buildSalesTile('Total Sales', totalSales),
+                // _buildSalesTile('Total Sales', totalSales),
+                // _buildSalesTile('Total Expenses', totalExpenses),
+                _buildSalesTile('Net Sales', netSales),
                 _buildSalesTile('Today\'s Sales', todaySales),
-                if (selectedDateRange != null)
+if (selectedDateRange != null)
                   Card(
                     color: Colors.yellow[100],
                     elevation: 8,
@@ -205,78 +238,204 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
                               color: Colors.green,
                             ),
                           ),
+                          SizedBox(height: 12),
+                          // Row with two IconButtons for expenses and clients
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                icon:
+                                    Icon(Icons.list_alt, color: Colors.orange),
+                                onPressed: () async {
+                                  // Fetch expenses data and filter based on the selected date range
+                                  QuerySnapshot expensesSnapshot =
+                                      await FirebaseFirestore.instance
+                                          .collection('expenses')
+                                          .get();
+                                  List<Map<String, dynamic>> filteredExpenses =
+                                      [];
+
+                                  for (var doc in expensesSnapshot.docs) {
+                                    var data =
+                                        doc.data() as Map<String, dynamic>;
+                                    var amount = data['amount'] ?? 0.0;
+                                    var name = data['name'] ?? '';
+                                    var timestamp = data['date'] as Timestamp;
+
+                                    DateTime expenseDate = timestamp.toDate();
+
+                                    // Check if the expense date falls within the selected date range
+                                    if (expenseDate.isAfter(selectedDateRange!
+                                            .start
+                                            .subtract(Duration(days: 1))) &&
+                                        expenseDate.isBefore(selectedDateRange!
+                                            .end
+                                            .add(Duration(days: 1)))) {
+                                      filteredExpenses.add({
+                                        'name': name,
+                                        'amount': amount,
+                                      });
+                                    }
+                                  }
+
+                                  // Show the dialog with the filtered expenses
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text(
+                                          "Expenses for Selected Date Range"),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: filteredExpenses
+                                            .map<Widget>((expense) {
+                                          return Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(expense['name']),
+                                              Text(
+                                                '₱${expense['amount'].toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                            ],
+                                          );
+                                        }).toList(),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: Text('Close'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.person, color: Colors.orange),
+                                onPressed: () async {
+                                  // Fetch the sales data for clients
+                                  QuerySnapshot salesSnapshot =
+                                      await FirebaseFirestore.instance
+                                          .collection('sales')
+                                          .get();
+                                  List<String> clients = [];
+
+                                  for (var doc in salesSnapshot.docs) {
+                                    var data =
+                                        doc.data() as Map<String, dynamic>;
+                                    var timestamp =
+                                        data['timestamp'] as Timestamp;
+                                    var clientName = data['client_name'] ?? '';
+
+                                    DateTime saleDate = timestamp.toDate();
+
+                                    if (saleDate.isAfter(selectedDateRange!
+                                            .start
+                                            .subtract(Duration(days: 1))) &&
+                                        saleDate.isBefore(selectedDateRange!.end
+                                            .add(Duration(days: 1)))) {
+                                      if (clientName.isNotEmpty &&
+                                          !clients.contains(clientName)) {
+                                        clients.add(clientName);
+                                      }
+                                    }
+                                  }
+
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text(
+                                          "Clients Who Availed the Product"),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: clients.map<Widget>((client) {
+                                          return Text(client);
+                                        }).toList(),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: Text('Close'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
                   ),
                 SizedBox(height: 30),
-                FutureBuilder<List<FlSpot>>(
-                  future: _getMonthlySalesData(),
-                  builder: (context, chartSnapshot) {
-                    if (chartSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return Center(child: CircularProgressIndicator());
-                    } else if (chartSnapshot.hasError) {
-                      return Center(
-                          child: Text('Error: ${chartSnapshot.error}'));
-                    } else if (!chartSnapshot.hasData) {
-                      return Center(child: Text('No monthly sales data.'));
-                    }
-
-                    return Card(
-                      elevation: 5,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Monthly Sales Analytics',
-                              style: TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 16),
-                            AspectRatio(
-                              aspectRatio: 1.7,
-                              child: LineChart(
-                                LineChartData(
-                                  gridData: FlGridData(show: true),
-                                  titlesData: FlTitlesData(show: true),
-                                  borderData: FlBorderData(show: true),
-                                  lineBarsData: [
-                                    LineChartBarData(
-                                      spots: chartSnapshot.data!,
-                                      isCurved: true,
-                                      gradient: LinearGradient(
-                                        colors: [Colors.blue, Colors.purple],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      barWidth: 5,
-                                      belowBarData: BarAreaData(
-                                        show: true,
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.blue.withOpacity(0.3),
-                                            Colors.purple.withOpacity(0.3)
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                Text(
+                  'Sales vs Expenses Chart',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 20),
+                AspectRatio(
+                  aspectRatio: 1.5,
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceEvenly,
+                      barGroups: [
+                        BarChartGroupData(
+                          x: 0,
+                          barRods: [
+                            BarChartRodData(
+                              toY: totalSales,
+                              color: Colors.green,
+                              width: 15,
                             ),
                           ],
+                          showingTooltipIndicators: [0],
+                        ),
+                        BarChartGroupData(
+                          x: 1,
+                          barRods: [
+                            BarChartRodData(
+                              toY: totalExpenses,
+                              color: Colors.red,
+                              width: 15,
+                            ),
+                          ],
+                          showingTooltipIndicators: [0],
+                        ),
+                      ],
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: true),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              switch (value.toInt()) {
+                                case 0:
+                                  return Text('Sales');
+                                case 1:
+                                  return Text('Expenses');
+                                default:
+                                  return Text('');
+                              }
+                            },
+                          ),
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -293,9 +452,65 @@ Future<List<FlSpot>> _getMonthlySalesData() async {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
         title: Text(label),
-        trailing: Text(
-          '₱${amount.toStringAsFixed(2)}',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '₱${amount.toStringAsFixed(2)}',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            if (label == "Today's Sales") // Add IconButton for today's expenses
+              // Fetch the data and show today's expense names and amounts
+              IconButton(
+                icon: Icon(Icons.list_alt),
+                onPressed: () async {
+                  // Fetch the data and show today's expense names and amounts
+                  var data = await getSalesAndExpensesData(
+                      dateRange: selectedDateRange);
+
+                  // Create a list of expense names and amounts
+                  List<Map<String, dynamic>> todayExpensesData = [];
+                  for (int i = 0; i < data['todayExpenseNames'].length; i++) {
+                    todayExpensesData.add({
+                      'name': data['todayExpenseNames'][i],
+                      'amount': data['todayExpenseAmounts'][i],
+                    });
+                  }
+
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text("Today's Expenses"),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: todayExpensesData.map<Widget>((expense) {
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(expense['name']),
+                              Text(
+                                '₱${expense['amount'].toStringAsFixed(2)}',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+          ],
         ),
       ),
     );

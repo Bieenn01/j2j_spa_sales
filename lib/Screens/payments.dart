@@ -11,6 +11,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
   TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   List<String> clientNames = []; // List to store client names for autocomplete
+  DateTime? _selectedDate; // Variable to store the selected date
 
   Future<void> _fetchClientNames() async {
     var snapshot = await FirebaseFirestore.instance.collection('sales').get();
@@ -24,16 +25,52 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
     });
   }
 
-  Future<QuerySnapshot> _searchPayments() {
-    if (_searchQuery.isEmpty) {
-      return FirebaseFirestore.instance.collection('sales').limit(3).get();
-    } else {
-      return FirebaseFirestore.instance
-          .collection('sales')
-          .where('client_name', isEqualTo: _searchQuery)
-          .get();
+Future<QuerySnapshot> _searchPayments() {
+    Query query = FirebaseFirestore.instance.collection('sales');
+
+    // Apply search by client name
+    if (_searchQuery.isNotEmpty) {
+      query = query.where('client_name', isEqualTo: _searchQuery);
     }
+
+    // Apply date filter if a date is selected
+    if (_selectedDate != null) {
+      DateTime startOfDay = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        0,
+        0,
+        0,
+        0,
+        0,
+      );
+      DateTime endOfDay = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        23,
+        59,
+        59,
+        999,
+        999,
+      );
+
+      Timestamp startTimestamp = Timestamp.fromDate(startOfDay);
+      Timestamp endTimestamp = Timestamp.fromDate(endOfDay);
+
+      query = query
+          .where('timestamp', isGreaterThanOrEqualTo: startTimestamp)
+          .where('timestamp', isLessThanOrEqualTo: endTimestamp);
+    }
+
+    // Order by timestamp in descending order to get the latest dates first
+    query = query.orderBy('timestamp', descending: true);
+
+    return query.get();
   }
+
+
 
   String formatDate(Timestamp? timestamp) {
     if (timestamp == null) return 'No date';
@@ -90,6 +127,22 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
     );
   }
 
+  // Function to show the date picker and set the selected date
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -106,37 +159,68 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Autocomplete<String>(
-              optionsBuilder: (TextEditingValue textEditingValue) {
-                if (textEditingValue.text.isEmpty) {
-                  return const Iterable<String>.empty();
-                }
-                return clientNames.where((clientName) => clientName
-                    .toLowerCase()
-                    .contains(textEditingValue.text.toLowerCase()));
-              },
-              onSelected: (String selectedClient) {
-                setState(() {
-                  _searchQuery = selectedClient;
-                });
-              },
-              fieldViewBuilder:
-                  (context, controller, focusNode, onFieldSubmitted) {
-                return TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Search by Client Name',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Search Client Name
+                Expanded(
+                  child: Autocomplete<String>(
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return const Iterable<String>.empty();
+                      }
+                      return clientNames.where((clientName) => clientName
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase()));
+                    },
+                    onSelected: (String selectedClient) {
+                      setState(() {
+                        _searchQuery = selectedClient;
+                      });
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onFieldSubmitted) {
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Search by Client Name',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+
+                // Date Picker Icon Button
+Padding(
+                  padding: const EdgeInsets.only(
+                      left: 8.0), // Optional: add some padding if needed
+                  child: GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: Container(
+                      padding:
+                          EdgeInsets.all(10), // Add padding around the icon
+                      decoration: BoxDecoration(
+                        color: Colors.blue, // Background color
+                        shape: BoxShape.circle, // Makes the button circular
+                      ),
+                      child: Icon(
+                        Icons.calendar_today,
+                        color: Colors.white, // Icon color
+                        size: 30, // Adjust icon size as needed
+                      ),
+                    ),
+                  ),
+                )
+
+              ],
             ),
           ),
           Expanded(
@@ -192,25 +276,30 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                         title: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              clientName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: Colors.blue,
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              formattedDate,
-                              style: TextStyle(
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  clientName,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                Text(
+                                  formattedDate,
+                                  style: TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -287,7 +376,6 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                             ),
                           ],
                         ),
-
                       ),
                     );
                   },
